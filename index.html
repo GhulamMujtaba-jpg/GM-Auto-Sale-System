@@ -2,34 +2,73 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>GM Sales & Profit Manager</title>
+<title>GM Auto Sales System</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-
 <style>
-body{font-family:Arial;margin:0;background:#f4f6f9;transition:.3s}
+body{
+font-family:Arial;
+margin:0;
+background:#f4f6f9;
+transition:.3s;
+}
 .dark{background:#1e1e1e;color:white}
-header{background:#2c3e50;color:white;padding:15px;text-align:center}
+header{
+background:#2c3e50;
+color:white;
+padding:15px;
+text-align:center;
+}
 .container{padding:15px}
-input,select,button{padding:6px;margin:4px}
-.card{background:white;padding:12px;margin:8px 0;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+input,button{
+padding:6px;
+margin:4px;
+}
+button{cursor:pointer}
+.card{
+background:white;
+padding:12px;
+margin:10px 0;
+border-radius:10px;
+box-shadow:0 2px 6px rgba(0,0,0,.2);
+}
 .dark .card{background:#2c2c2c}
-.dashboard{display:flex;flex-wrap:wrap;gap:10px}
-.dashboard div{flex:1;background:#3498db;color:white;padding:10px;border-radius:10px;text-align:center}
-.red{color:red} .green{color:green}
-@media(max-width:600px){.dashboard{flex-direction:column}}
+.product-buttons{
+display:flex;
+gap:10px;
+align-items:center;
+}
+.product-buttons button{
+width:35px;
+height:35px;
+font-size:18px;
+}
+.dashboard{
+display:flex;
+flex-wrap:wrap;
+gap:10px;
+margin-top:15px;
+}
+.dashboard div{
+flex:1;
+background:#3498db;
+color:white;
+padding:10px;
+border-radius:10px;
+text-align:center;
+}
+.red{color:red}
+.green{color:lime}
+@media(max-width:600px){
+.dashboard{flex-direction:column}
+}
 </style>
 </head>
 <body>
 
 <header>
-<h2>GM Sales & Profit Manager</h2>
+<h2>GM Auto Sales System</h2>
 <button onclick="toggleMode()">Dark/Light</button>
-<button onclick="print()">Print</button>
-<button onclick="downloadCSV()">Download CSV</button>
-<button onclick="screenshot()">Screenshot</button>
 <button onclick="clearAll()">Clear All</button>
 </header>
 
@@ -39,176 +78,136 @@ input,select,button{padding:6px;margin:4px}
 <input id="pname" placeholder="Product Name">
 <input type="number" id="cost" placeholder="Cost Price">
 <input type="number" id="sale" placeholder="Sale Price">
-<button onclick="addProduct()">Add Product</button>
+<input type="number" id="stock" placeholder="Stock (optional)">
+<button onclick="addProduct()">Add</button>
 
-<h3>Make Sale</h3>
-<select id="productSelect"></select>
-<input type="number" id="qty" placeholder="Quantity">
-<input type="number" id="discount" placeholder="Discount (optional)">
-<input type="date" id="date">
-<button onclick="addSale()">Add Sale</button>
-
-<h3>Expense</h3>
-<input type="number" id="expense" placeholder="Enter Expense">
-<button onclick="addExpense()">Add Expense</button>
+<h3>Products</h3>
+<div id="productList"></div>
 
 <h3>Dashboard</h3>
 <div class="dashboard">
 <div>Today Sale<br><span id="todaySale">0</span></div>
-<div>Today Profit<br><span id="todayProfit">0</span></div>
-<div>Total Items<br><span id="totalItems">0</span></div>
 <div>Overall Sale<br><span id="overallSale">0</span></div>
 <div>Overall Profit<br><span id="overallProfit">0</span></div>
-<div>Net Profit<br><span id="netProfit">0</span></div>
 </div>
-
-<h3>Search & Filter</h3>
-<input id="search" placeholder="Search product" onkeyup="render()">
-<input type="date" id="filterDate" onchange="render()">
-
-<div id="report"></div>
-
-<h3>Charts</h3>
-<canvas id="saleChart"></canvas>
-<canvas id="profitChart"></canvas>
-
-<button onclick="whatsappSummary()">Share WhatsApp Summary</button>
 
 </div>
 
 <script>
-let products=JSON.parse(localStorage.getItem("products"))||[];
-let sales=JSON.parse(localStorage.getItem("sales"))||[];
-let expenses=JSON.parse(localStorage.getItem("expenses"))||[];
-
-document.getElementById("date").value=new Date().toISOString().split("T")[0];
+let products = JSON.parse(localStorage.getItem("products")) || [];
+let sales = JSON.parse(localStorage.getItem("sales")) || [];
 
 function save(){
 localStorage.setItem("products",JSON.stringify(products));
 localStorage.setItem("sales",JSON.stringify(sales));
-localStorage.setItem("expenses",JSON.stringify(expenses));
 }
 
 function addProduct(){
 let name=pname.value;
 let costp=parseFloat(cost.value);
 let salep=parseFloat(sale.value);
-if(!name||!costp||!salep)return alert("Fill all");
-products.push({name,costp,salep});
-save();loadProducts();render();
-}
+let stockp=parseInt(stock.value)||0;
 
-function loadProducts(){
-productSelect.innerHTML="";
-products.forEach((p,i)=>{
-let opt=document.createElement("option");
-opt.value=i;opt.text=p.name;
-productSelect.appendChild(opt);
+if(!name||!costp||!salep)return alert("Fill all fields");
+
+products.push({
+name,
+costp,
+salep,
+stock:stockp,
+sold:0
 });
-}
-loadProducts();
 
-function addSale(){
-let p=products[productSelect.value];
-let quantity=parseInt(qty.value);
-let disc=parseFloat(discount.value)||0;
-let date=document.getElementById("date").value;
-if(!p||!quantity)return alert("Fill data");
-
-let totalSale=(p.salep*quantity)-disc;
-let profit=((p.salep-p.costp)*quantity)-disc;
-
-sales.push({name:p.name,quantity,totalSale,profit,date});
-save();render();
+save();
+renderProducts();
 }
 
-function addExpense(){
-let e=parseFloat(expense.value);
-if(!e)return;
-expenses.push({amount:e,date:new Date().toISOString().split("T")[0]});
-save();render();
-}
+function renderProducts(){
+let list=document.getElementById("productList");
+list.innerHTML="";
 
-function render(){
-let searchVal=search.value.toLowerCase();
-let filterVal=filterDate.value;
-
-let today=new Date().toISOString().split("T")[0];
-let todaySale=0,todayProfit=0,totalItems=0,overallSale=0,overallProfit=0;
-
-report.innerHTML="";
-
-sales.forEach(s=>{
-if((!filterVal||s.date==filterVal)&&s.name.toLowerCase().includes(searchVal)){
+products.forEach((p,index)=>{
 let div=document.createElement("div");
 div.className="card";
-div.innerHTML=`${s.name} (${s.date}) - Qty:${s.quantity}<br>Sale:${s.totalSale} Profit:${s.profit}`;
-report.appendChild(div);
-}
-if(s.date==today){todaySale+=s.totalSale;todayProfit+=s.profit;}
-overallSale+=s.totalSale;
-overallProfit+=s.profit;
-totalItems+=s.quantity;
+
+div.innerHTML=`
+<b>${p.name}</b><br>
+Cost: ${p.costp} | Sale: ${p.salep}<br>
+Sold: ${p.sold} | Stock: ${p.stock}<br>
+<div class="product-buttons">
+<button onclick="increase(${index})">+</button>
+<button onclick="decrease(${index})">-</button>
+</div>
+`;
+
+list.appendChild(div);
 });
 
-let totalExpense=expenses.reduce((a,b)=>a+b.amount,0);
-let net=overallProfit-totalExpense;
-
-todaySale.innerText=todaySale;
-todayProfit.innerText=todayProfit;
-totalItems.innerText=totalItems;
-overallSale.innerText=overallSale;
-overallProfit.innerText=overallProfit;
-netProfit.innerText=net;
-netProfit.className=net>=0?"green":"red";
-
-updateCharts();
+updateDashboard();
 }
 
-function updateCharts(){
-let ctx=document.getElementById("saleChart");
-new Chart(ctx,{
-type:"line",
-data:{
-labels:sales.map(s=>s.date),
-datasets:[{label:"Sales",data:sales.map(s=>s.totalSale)}]
+function increase(i){
+let p=products[i];
+
+if(p.stock>0){
+if(p.sold>=p.stock){
+alert("Out of stock!");
+return;
 }
+}
+
+p.sold+=1;
+
+let today=new Date().toISOString().split("T")[0];
+
+sales.push({
+date:today,
+sale:p.salep,
+profit:(p.salep-p.costp)
 });
-let ctx2=document.getElementById("profitChart");
-new Chart(ctx2,{
-type:"bar",
-data:{
-labels:sales.map(s=>s.date),
-datasets:[{label:"Profit",data:sales.map(s=>s.profit)}]
-}
-});
+
+save();
+renderProducts();
 }
 
-function downloadCSV(){
-let csv="Product,Date,Qty,Sale,Profit\n";
+function decrease(i){
+let p=products[i];
+if(p.sold>0){
+p.sold-=1;
+sales.pop();
+save();
+renderProducts();
+}
+}
+
+function updateDashboard(){
+let today=new Date().toISOString().split("T")[0];
+let todaySale=0;
+let overallSale=0;
+let overallProfit=0;
+
 sales.forEach(s=>{
-csv+=`${s.name},${s.date},${s.quantity},${s.totalSale},${s.profit}\n`;
-});
-let blob=new Blob([csv]);
-let a=document.createElement("a");
-a.href=URL.createObjectURL(blob);
-a.download="report.csv";
-a.click();
+overallSale+=s.sale;
+overallProfit+=s.profit;
+if(s.date==today){
+todaySale+=s.sale;
 }
-
-function screenshot(){
-html2canvas(document.body).then(canvas=>{
-let link=document.createElement("a");
-link.download="report.png";
-link.href=canvas.toDataURL();
-link.click();
 });
+
+document.getElementById("todaySale").innerText=todaySale;
+document.getElementById("overallSale").innerText=overallSale;
+
+let profitEl=document.getElementById("overallProfit");
+profitEl.innerText=overallProfit;
+profitEl.className=overallProfit>=0?"green":"red";
 }
 
 function clearAll(){
 if(confirm("Clear all data?")){
-products=[];sales=[];expenses=[];
-save();render();
+products=[];
+sales=[];
+save();
+renderProducts();
 }
 }
 
@@ -216,12 +215,7 @@ function toggleMode(){
 document.body.classList.toggle("dark");
 }
 
-function whatsappSummary(){
-let msg=`Today Sale: ${todaySale.innerText}\nToday Profit: ${todayProfit.innerText}\nNet Profit: ${netProfit.innerText}`;
-window.open("https://wa.me/?text="+encodeURIComponent(msg));
-}
-
-render();
+renderProducts();
 </script>
 
 </body>
